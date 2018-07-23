@@ -1,5 +1,5 @@
 # QANet
-A Pytorch implementation of [QANet](https://arxiv.org/pdf/1804.09541.pdf)
+A Pytorch implementation of [QANet](https://arxiv.org/pdf/1804.09541.pdf)  
 The code is mostly based on the two repositories:
 [hengruo/QANet-pytorch](https://github.com/hengruo/QANet-pytorch)
 [NLPLearn/QANet](https://github.com/NLPLearn/QANet)
