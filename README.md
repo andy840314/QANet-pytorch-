@@ -38,4 +38,5 @@ $ python3.6 main.py --mode train
 $ tensorboard ./log/
 ```
 ## TODO
+- [ ] Add Exponential Moving Average
 - [ ] Reach the performance of the paper, still not sure where to improve.
