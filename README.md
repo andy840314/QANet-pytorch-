@@ -33,7 +33,7 @@ Train the model
 $ python3.6 main.py --mode train
 
 ## Tensorboard
-Run tensorboard for visualisation
+# Run tensorboard for visualisation
 $ tensorboard ./log/
 
 ## TODO
