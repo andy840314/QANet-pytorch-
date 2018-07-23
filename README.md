@@ -11,12 +11,12 @@ The code is mostly based on the two repositories:
 |     60,000     |  96  |        1        | 64.0 | 75.0 |
 
 ## Requirements
-  *python 3.6
-  *pytorch 0.4.0
-  *tqdm
-  *spacy 2.0.11
-  *tensorboardX
-  *absl-py
+  * python 3.6
+  * pytorch 0.4.0
+  * tqdm
+  * spacy 2.0.11
+  * tensorboardX
+  * absl-py
 
 ## Usage
 Download and preprocess the data
