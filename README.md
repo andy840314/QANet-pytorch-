@@ -31,10 +31,11 @@ Train the model
 ```bash
 # model/model.pt will be generated every epoch
 $ python3.6 main.py --mode train
-
+```
 ## Tensorboard
+```bash
 # Run tensorboard for visualisation
 $ tensorboard ./log/
-
+```
 ## TODO
 - [ ] Reach the performance of the paper, still not sure where to improve.
