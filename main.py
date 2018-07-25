@@ -22,7 +22,6 @@ writer = SummaryWriter(log_dir='./log')
 Some functions are from the official evaluation script.
 '''
 
-
 class SQuADDataset(Dataset):
     def __init__(self, npz_file, batch_size):
         data = np.load(npz_file)
@@ -40,6 +39,34 @@ class SQuADDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.context_idxs[idx],self.context_char_idxs[idx], self.ques_idxs[idx],self.ques_char_idxs[idx],self.y1s[idx],self.y2s[idx],self.ids[idx]
+class EMA():
+    def __init__(self, mu):
+        self.mu = mu
+        self.shadow = {}
+        self.original = {}
+
+    def register(self, name, val):
+        self.shadow[name] = val.clone()
+
+    def __call__(self, model, num_updates):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                decay = min(self.mu, (1+num_updates)/(10+num_updates))
+                new_average = (1.0 - decay) * param.data + decay * self.shadow[name]
+                self.shadow[name] = new_average.clone()
+
+    def assign(self, model):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                self.original[name] = param.data.clone()
+                param.data = self.shadow[name]
+    def resume(self, model):
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                assert name in self.shadow
+                param.data = self.original[name]
 
 def collate(data):
     Cwid, Ccid, Qwid, Qcid, y1, y2, ids = zip(*data)
@@ -140,7 +167,7 @@ def metric_max_over_ground_truths(metric_fn, prediction, ground_truths):
     return max(scores_for_ground_truths)
 
 
-def train(model, optimizer, scheduler, dataset, dev_dataset, dev_eval_file, start):
+def train(model, optimizer, scheduler, dataset, dev_dataset, dev_eval_file, start, ema):
     model.train()
     losses = []
     print(f'Training epoch {start}')
@@ -159,9 +186,14 @@ def train(model, optimizer, scheduler, dataset, dev_dataset, dev_eval_file, star
         loss.backward()
         torch.nn.utils.clip_grad_value_(model.parameters(), config.grad_clip)
         optimizer.step()
+
+        ema(model, i+start*len(dataset))
+
         scheduler.step()
         if (i+1) % config.checkpoint == 0 and (i+1) < config.checkpoint*(len(dataset)//config.checkpoint):
+            ema.assign(model)
             metrics = test(model, dev_dataset, dev_eval_file, i+start*len(dataset))
+            ema.resume(model)
             model.train()
         for param_group in optimizer.param_groups:
             #print("Learning:", param_group['lr'])
@@ -215,6 +247,8 @@ def test(model, dataset, eval_file, test_i):
     with torch.no_grad():
         for i, (Cwid, Ccid, Qwid, Qcid, y1, y2, ids) in enumerate(dataset):
             Cwid, Ccid, Qwid, Qcid = Cwid.to(device), Ccid.to(device), Qwid.to(device), Qcid.to(device)
+
+
             P1, P2 = model(Cwid, Ccid, Qwid, Qcid)
             y1, y2 = y1.to(device), y2.to(device)
             p1 = F.log_softmax(P1, dim=1)
@@ -273,8 +307,14 @@ def train_entry(config):
     lr_warm_up_num = config.lr_warm_up_num
 
     model = QANet(word_mat, char_mat).to(device)
+
+    ema = EMA(config.decay)
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            ema.register(name, param.data)
+
     parameters = filter(lambda param: param.requires_grad, model.parameters())
-    optimizer = optim.Adam(lr=base_lr, betas=(0.8, 0.999), eps=1e-6, weight_decay=3e-7, params=parameters)
+    optimizer = optim.Adam(lr=base_lr, betas=(0.9, 0.999), eps=1e-7, weight_decay=5e-8, params=parameters)
     cr = lr / math.log2(lr_warm_up_num)
     scheduler = optim.lr_scheduler.LambdaLR(
         optimizer,
@@ -284,7 +324,8 @@ def train_entry(config):
     patience = 0
     unused = False
     for iter in range(config.num_epoch):
-        train(model, optimizer, scheduler, train_dataset, dev_dataset, dev_eval_file, iter)
+        train(model, optimizer, scheduler, train_dataset, dev_dataset, dev_eval_file, iter, ema)
+        ema.assign(model)
         metrics = test(model, dev_dataset, dev_eval_file, (iter+1)*len(train_dataset))
         dev_f1 = metrics["f1"]
         dev_em = metrics["exact_match"]
@@ -299,6 +340,7 @@ def train_entry(config):
 
         fn = os.path.join(config.save_dir, "model.pt")
         torch.save(model, fn)
+        ema.resume(model)
 
 
 def test_entry(config):
