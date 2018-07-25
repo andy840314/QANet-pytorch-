@@ -126,7 +126,7 @@ class SelfAttention(nn.Module):
         if mask is not None:
             shapes = [x  if x != None else -1 for x in list(logits.size())]
             mask = mask.view(shapes[0], 1, 1, shapes[-1])
-            mask = mask_logits(logits, mask)
+            logits = mask_logits(logits, mask)
         weights = F.softmax(logits, dim=-1)
         # dropping out the attention links for each of the heads
         weights = F.dropout(weights, p=dropout, training=self.training)
