@@ -320,6 +320,6 @@ class QANet(nn.Module):
         M2 = M1
         M2 = F.dropout(M2, p=dropout, training=self.training)
         for blk in self.model_enc_blks:
-             M2 = blk(M0, maskC, Lc)
+             M2 = blk(M2, maskC, Lc)
         p1, p2 = self.out(M0, M1, M2, maskC)
         return p1, p2
