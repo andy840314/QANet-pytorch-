@@ -7,7 +7,7 @@ The code is mostly based on the two repositories:
 ## Performance
 | Training Steps | Size | Attention Heads |  EM  |  F1  |
 |:--------------:|:----:|:---------------:|:----:|:----:|
-|     35,000     |  96  |        1        | 64.6 | 75.7 |
+|     35,000     |  96  |        1        | 65.3 | 76.3 |
 |     60,000     |  96  |        1        | 65.5 | 76.5 |
 
 ## Requirements
