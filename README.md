@@ -35,7 +35,7 @@ $ python3.6 main.py --mode train
 ## Tensorboard
 ```bash
 # Run tensorboard for visualisation
-$ tensorboard ./log/
+$ tensorboard --logdir ./log/
 ```
 ## TODO
 - [X] Add Exponential Moving Average
