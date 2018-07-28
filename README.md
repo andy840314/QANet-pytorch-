@@ -8,7 +8,7 @@ The code is mostly based on the two repositories:
 | Training Steps | Size | Attention Heads |  EM  |  F1  |
 |:--------------:|:----:|:---------------:|:----:|:----:|
 |     35,000     |  96  |        1        | 65.3 | 76.3 |
-|     60,000     |  96  |        1        | 65.5 | 76.5 |
+|     60,000     |  96  |        1        | 66.2 | 77.2 |
 
 ## Requirements
   * python 3.6
