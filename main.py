@@ -17,7 +17,7 @@ import torch.cuda
 from torch.utils.data import Dataset
 from tensorboardX import SummaryWriter
 import pickle
-writer = SummaryWriter(log_dir='./log')
+writer = SummaryWriter(log_dir='./log1')
 '''
 Some functions are from the official evaluation script.
 '''
@@ -95,19 +95,10 @@ def convert_tokens(eval_file, qa_id, pp1, pp2):
         context = eval_file[str(qid)]["context"]
         spans = eval_file[str(qid)]["spans"]
         uuid = eval_file[str(qid)]["uuid"]
-        l = len(spans)
-        if p1 >= l or p2 >= l:
-            ans = ""
-        else:
-            start_idx = spans[p1][0]
-            end_idx = spans[p2][1]
-            word_p = ''
-            for index in range(p1, p2+1):
-                word_p += context[spans[index][0]: spans[index][1]]
-                word_p += ' '
-            ans = word_p
-        answer_dict[str(qid)] = ans
-        remapped_dict[uuid] = ans
+        start_idx = spans[p1][0]
+        end_idx = spans[p2][1]
+        answer_dict[str(qid)] = context[start_idx: end_idx]
+        remapped_dict[uuid] = context[start_idx: end_idx]
     return answer_dict, remapped_dict
 
 
@@ -133,7 +124,7 @@ def normalize_answer(s):
 
     def remove_punc(text):
         exclude = set(string.punctuation)
-        exclude.update('，', '。', '、', '；', '「', '」')
+        #exclude.update('，', '。', '、', '；', '「', '」')
         return ''.join(ch for ch in text if ch not in exclude)
 
     def lower(text):
@@ -202,42 +193,6 @@ def train(model, optimizer, scheduler, dataset, dev_dataset, dev_eval_file, star
     loss_avg = np.mean(losses)
     print("STEP {:8d} Avg_loss {:8f}\n".format(start, loss_avg))
 
-def dp(x_size, y_size, p1, p2):
-    #slow and stupid dynamic programming for finding answer span
-    ymin = np.zeros(x_size, dtype=int)
-    ymax = np.zeros(x_size, dtype=int)
-    for current_context in range(x_size):
-        ssi = ssv = sei = sev = sel_prob = 0 #selected start/end value/index
-        max_start_index = 0
-        max_start_value = 0
-        cur1 = p1[current_context]
-        cur2 = p2[current_context]
-        for index, (prob_1, prob_2) in enumerate(zip(cur1, cur2)):
-            if index == 0:
-                ssi = 0
-                ssv = prob_1
-                sei = 0
-                sev = prob_2
-                sel_prob = ssv + sev
-                max_start_index = 0
-                max_start_value = prob_1
-            else:
-                if prob_1 > max_start_value:
-                    max_start_value = prob_1
-                    max_start_index = index
-                if prob_2 + max_start_value > sel_prob:
-                    ssi = max_start_index
-                    ssv = max_start_value
-                    sei = index
-                    sev = prob_2
-                    sel_prob = ssv + sev
-                elif prob_2 > sev:
-                    sei = index
-                    sev = prob_2
-                    sel_prob = ssv + sev
-        ymin[current_context] = ssi
-        ymax[current_context] = sei
-    return ymin, ymax
 def test(model, dataset, eval_file, test_i):
     print("\nTest")
     model.eval()
@@ -260,10 +215,13 @@ def test(model, dataset, eval_file, test_i):
 
             p1 = F.softmax(P1, dim=1)
             p2 = F.softmax(P2, dim=1)
+
+            #ymin = []
+            #ymax = []
             outer = torch.matmul(p1.unsqueeze(2), p2.unsqueeze(1))
             for j in range(outer.size()[0]):
                 outer[j] = torch.triu(outer[j])
-                outer[j] = torch.tril(outer[j], config.ans_limit)
+                #outer[j] = torch.tril(outer[j], config.ans_limit)
             a1, _ = torch.max(outer, dim=2)
             a2, _ = torch.max(outer, dim=1)
             ymin = torch.argmax(a1, dim=1)
