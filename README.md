@@ -7,8 +7,8 @@ The code is mostly based on the two repositories:
 ## Performance
 | Training Steps | Size | Attention Heads |  EM  |  F1  |
 |:--------------:|:----:|:---------------:|:----:|:----:|
-|     35,000     |  96  |        1        | 65.3 | 76.3 |
-|     60,000     |  96  |        1        | 66.2 | 77.2 |
+|     35,000     |  96  |        1        | 69.0 | 78.6 |
+|     60,000     |  96  |        1        | 70.0 | 79.2 |
 
 ## Requirements
   * python 3.6
@@ -39,4 +39,5 @@ $ tensorboard --logdir ./log/
 ```
 ## TODO
 - [X] Add Exponential Moving Average
-- [ ] Reach the performance of the paper, still not sure where to improve.
+- [x] Reach the performance of the paper with hidden size 96, 1 head.
+- [ ] Test on hidden size 128, 8 head.
