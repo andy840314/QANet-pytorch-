@@ -80,20 +80,21 @@ class Highway(nn.Module):
             nonlinear = self.linear[i](x)
             nonlinear = F.dropout(nonlinear, p=dropout, training=self.training)
             x = gate * nonlinear + (1 - gate) * x
+            #x = F.relu(x)
         return x
 
 
 class SelfAttention(nn.Module):
     def __init__(self):
         super().__init__()
-        self.mem_conv = Initialized_Conv1d(in_channels=D, out_channels=D*2, kernel_size=1, relu=False, bias=False)
-        self.query_conv = Initialized_Conv1d(in_channels=D, out_channels=D, kernel_size=1, relu=False, bias=False)
+        self.mem_conv = Initialized_Conv1d(D, D*2, kernel_size=1, relu=False, bias=False)
+        self.query_conv = Initialized_Conv1d(D, D, kernel_size=1, relu=False, bias=False)
 
         bias = torch.empty(1)
         nn.init.constant_(bias, 0)
         self.bias = nn.Parameter(bias)
 
-    def forward(self, queries, mask, length):
+    def forward(self, queries, mask):
         memory = queries
 
         memory = self.mem_conv(memory)
@@ -105,10 +106,10 @@ class SelfAttention(nn.Module):
 
         key_depth_per_head = D // Nh
         Q *= key_depth_per_head**-0.5
-        x = self.dot_product_attention(Q, K, V, length, mask = mask)
+        x = self.dot_product_attention(Q, K, V, mask = mask)
         return self.combine_last_two_dim(x.permute(0,2,1,3)).transpose(1, 2)
 
-    def dot_product_attention(self, q, k ,v, length, bias = False, mask = None):
+    def dot_product_attention(self, q, k ,v, bias = False, mask = None):
         """dot-product attention.
         Args:
         q: a Tensor with shape [batch, heads, length_q, depth_k]
@@ -193,40 +194,42 @@ class EncoderBlock(nn.Module):
         self.norm_C = nn.ModuleList([nn.LayerNorm(D) for _ in range(conv_num)])
         self.norm_1 = nn.LayerNorm(D)
         self.norm_2 = nn.LayerNorm(D)
-        self.L = conv_num + 2
-        self.l = 1
-    def forward(self, x, mask, length):
-        self.l = 1
+        self.conv_num = conv_num
+    def forward(self, x, mask, l, blks):
+        total_layers = (self.conv_num+1)*blks
         out = PosEncoder(x)
-        res = out
         for i, conv in enumerate(self.convs):
+            res = out
             out = self.norm_C[i](out.transpose(1,2)).transpose(1,2)
             if (i) % 2 == 0:
                 out = F.dropout(out, p=dropout, training=self.training)
             out = conv(out)
-            out = self.layer_dropout(out, res, dropout*float(self.l)/self.L)
-            self.l += 1
-            res = out
+            out = self.layer_dropout(out, res, dropout*float(l)/total_layers)
+            l += 1
+        res = out
         out = self.norm_1(out.transpose(1,2)).transpose(1,2)
         out = F.dropout(out, p=dropout, training=self.training)
-        out = self.self_att(out, mask, length)
-        out = self.layer_dropout(out, res, dropout*float(self.l)/self.L)
-        self.l += 1
+        out = self.self_att(out, mask)
+        out = self.layer_dropout(out, res, dropout*float(l)/total_layers)
+        l += 1
         res = out
 
         out = self.norm_2(out.transpose(1,2)).transpose(1,2)
         out = F.dropout(out, p=dropout, training=self.training)
         out = self.FFN_1(out)
         out = self.FFN_2(out)
-        out = self.layer_dropout(out, res, dropout*float(self.l)/self.L)
+        out = self.layer_dropout(out, res, dropout*float(l)/total_layers)
         return out
 
     def layer_dropout(self, inputs, residual, dropout):
-        pred = torch.empty(1).uniform_(0,1) < dropout
-        if pred:
-            return residual
+        if self.training == True:
+            pred = torch.empty(1).uniform_(0,1) < dropout
+            if pred:
+                return residual
+            else:
+                return F.dropout(inputs, dropout, training=self.training) + residual
         else:
-            return F.dropout(inputs, dropout, training=self.training) + residual
+            return inputs + residual
 
 
 class CQAttention(nn.Module):
@@ -293,7 +296,7 @@ class QANet(nn.Module):
         else:
             char_mat = torch.Tensor(char_mat)
             self.char_emb = nn.Embedding.from_pretrained(char_mat, freeze=False)
-        self.word_emb = nn.Embedding.from_pretrained(torch.Tensor(word_mat))
+        self.word_emb = nn.Embedding.from_pretrained(torch.Tensor(word_mat), freeze=True)
         self.emb = Embedding()
         self.emb_enc = EncoderBlock(conv_num=4, ch_num=D, k=7)
         self.cq_att = CQAttention()
@@ -307,19 +310,20 @@ class QANet(nn.Module):
         Cw, Cc = self.word_emb(Cwid), self.char_emb(Ccid)
         Qw, Qc = self.word_emb(Qwid), self.char_emb(Qcid)
         C, Q = self.emb(Cc, Cw, Lc), self.emb(Qc, Qw, Lq)
-        Ce = self.emb_enc(C, maskC, Lc)
-        Qe = self.emb_enc(Q, maskQ, Lq)
+        Ce = self.emb_enc(C, maskC, 1, 1)
+        Qe = self.emb_enc(Q, maskQ, 1, 1)
         X = self.cq_att(Ce, Qe, maskC, maskQ)
         M0 = self.cq_resizer(X)
         M0 = F.dropout(M0, p=dropout, training=self.training)
-        for blk in self.model_enc_blks:
-             M0 = blk(M0, maskC, Lc)
+        for i, blk in enumerate(self.model_enc_blks):
+             M0 = blk(M0, maskC, i*(2+2)+1, 7)
         M1 = M0
         for blk in self.model_enc_blks:
-             M1 = blk(M1, maskC, Lc)
-        M2 = M1
-        M2 = F.dropout(M2, p=dropout, training=self.training)
+             M0 = blk(M0, maskC, i*(2+2)+1, 7)
+        M2 = M0
+        M0 = F.dropout(M0, p=dropout, training=self.training)
         for blk in self.model_enc_blks:
-             M2 = blk(M2, maskC, Lc)
-        p1, p2 = self.out(M0, M1, M2, maskC)
+             M0 = blk(M0, maskC, i*(2+2)+1, 7)
+        M3 = M0
+        p1, p2 = self.out(M1, M2, M3, maskC)
         return p1, p2
