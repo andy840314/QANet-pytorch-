@@ -43,5 +43,5 @@ $ tensorboard --logdir ./log/
 ```
 ## TODO
 - [X] Add Exponential Moving Average
-- [x] Reach the performance of the paper with hidden size 96, 1 head.
-- [ ] Test on hidden size 128, 8 head.
+- [X] Reach the performance of the paper with hidden size 96, 1 head.
+- [X] Test on hidden size 128, 8 head.
