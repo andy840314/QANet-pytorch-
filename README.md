@@ -5,10 +5,14 @@ The code is mostly based on the two repositories:
 [NLPLearn/QANet](https://github.com/NLPLearn/QANet)
 
 ## Performance
-| Training Steps | Size | Attention Heads |  EM  |  F1  |
-|:--------------:|:----:|:---------------:|:----:|:----:|
-|     35,000     |  96  |        1        | 65.3 | 76.3 |
-|     60,000     |  96  |        1        | 66.2 | 77.2 |
+| Training epochs / Steps | BatchSize | HiddenSize | Attention Heads |  EM  |  F1  |
+|:-----------------------:|:---------:|:----------:|:---------------:|:----:|:----:|
+|      12.8 / 35,000     |     32    |     96     |        1        | 69.0 | 78.6 |
+|      22 / 60,000       |     32    |     96     |        1        | 69.7 | 79.2 |
+|      12.8 / 93,200     |     12    |     128    |        8        | 70.3 | 79.7 |
+|      22 / 160,160      |     12    |     128    |        8        | 70.7 | 80.0 |
+
+*The results of hidden size 128 with 8 heads were run with 12 batches.
 
 ## Requirements
   * python 3.6
@@ -39,4 +43,5 @@ $ tensorboard --logdir ./log/
 ```
 ## TODO
 - [X] Add Exponential Moving Average
-- [ ] Reach the performance of the paper, still not sure where to improve.
+- [X] Reach the performance of the paper with hidden size 96, 1 head.
+- [X] Test on hidden size 128, 8 head.
