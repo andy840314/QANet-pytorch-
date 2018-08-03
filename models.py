@@ -318,11 +318,11 @@ class QANet(nn.Module):
         for i, blk in enumerate(self.model_enc_blks):
              M0 = blk(M0, maskC, i*(2+2)+1, 7)
         M1 = M0
-        for blk in self.model_enc_blks:
+        for i, blk in enumerate(self.model_enc_blks):
              M0 = blk(M0, maskC, i*(2+2)+1, 7)
         M2 = M0
         M0 = F.dropout(M0, p=dropout, training=self.training)
-        for blk in self.model_enc_blks:
+        for i, blk in enumerate(self.model_enc_blks):
              M0 = blk(M0, maskC, i*(2+2)+1, 7)
         M3 = M0
         p1, p2 = self.out(M1, M2, M3, maskC)
